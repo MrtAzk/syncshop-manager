@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -7,12 +8,73 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { AlertTriangle, ArrowDown, ArrowUp } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertTriangle,
+  ArrowDown,
+  ArrowUp,
+  Download,
+  Filter,
+  RefreshCw,
+} from "lucide-react";
+
+// Mock data - In a real app, this would come from an API
+const mockProducts = Array.from({ length: 10 }).map((_, i) => ({
+  id: i + 1,
+  name: `Ürün ${i + 1}`,
+  currentStock: Math.floor(Math.random() * 100),
+  minStock: 20,
+  lastMovement: {
+    type: Math.random() > 0.5 ? "increase" : "decrease",
+    amount: Math.floor(Math.random() * 10),
+  },
+  status: Math.random() > 0.5 ? "normal" : "critical",
+}));
 
 export default function Inventory() {
+  const [products] = useState(mockProducts);
+  const [searchTerm, setSearchTerm] = useState("");
+  const { toast } = useToast();
+
+  const filteredProducts = products.filter((product) =>
+    product.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const criticalStockCount = products.filter(
+    (product) => product.status === "critical"
+  ).length;
+
+  const handleExport = () => {
+    toast({
+      title: "Dışa Aktarma Başlatıldı",
+      description: "Stok raporu hazırlanıyor...",
+    });
+  };
+
+  const handleRefresh = () => {
+    toast({
+      title: "Stok Bilgileri Güncellendi",
+      description: "Tüm veriler yenilendi.",
+    });
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
-      <h1 className="text-3xl font-bold">Stok Takibi</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">Stok Takibi</h1>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExport}>
+            <Download className="h-4 w-4 mr-2" />
+            Dışa Aktar
+          </Button>
+          <Button variant="outline" onClick={handleRefresh}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Yenile
+          </Button>
+        </div>
+      </div>
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
@@ -20,18 +82,30 @@ export default function Inventory() {
             <CardTitle className="text-sm font-medium">
               Kritik Stok Seviyesi
             </CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            <AlertTriangle className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">12 Ürün</div>
+            <div className="text-2xl font-bold">{criticalStockCount} Ürün</div>
             <p className="text-xs text-muted-foreground">
-              Stok seviyesi düşük
+              Stok seviyesi minimum limitin altında
             </p>
           </CardContent>
         </Card>
       </div>
 
       <div className="rounded-lg border">
+        <div className="flex items-center gap-4 p-4 border-b">
+          <div className="relative flex-1">
+            <Input
+              placeholder="Ürün ara..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-8"
+            />
+            <Filter className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          </div>
+        </div>
+
         <Table>
           <TableHeader>
             <TableRow>
@@ -43,21 +117,29 @@ export default function Inventory() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {Array.from({ length: 5 }).map((_, i) => (
-              <TableRow key={i}>
-                <TableCell>Ürün {i + 1}</TableCell>
-                <TableCell>{Math.floor(Math.random() * 100)}</TableCell>
-                <TableCell>20</TableCell>
+            {filteredProducts.map((product) => (
+              <TableRow key={product.id}>
+                <TableCell className="font-medium">{product.name}</TableCell>
+                <TableCell>{product.currentStock}</TableCell>
+                <TableCell>{product.minStock}</TableCell>
                 <TableCell className="flex items-center gap-1">
-                  {Math.random() > 0.5 ? (
+                  {product.lastMovement.type === "increase" ? (
                     <ArrowUp className="h-4 w-4 text-green-500" />
                   ) : (
                     <ArrowDown className="h-4 w-4 text-red-500" />
                   )}
-                  {Math.floor(Math.random() * 10)} adet
+                  {product.lastMovement.amount} adet
                 </TableCell>
                 <TableCell>
-                  {Math.random() > 0.5 ? "Normal" : "Kritik"}
+                  <span
+                    className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                      product.status === "critical"
+                        ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                        : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                    }`}
+                  >
+                    {product.status === "critical" ? "Kritik" : "Normal"}
+                  </span>
                 </TableCell>
               </TableRow>
             ))}
