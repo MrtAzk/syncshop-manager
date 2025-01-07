@@ -12,15 +12,49 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+import {
   AlertTriangle,
   ArrowDown,
   ArrowUp,
   Download,
   Filter,
   RefreshCw,
+  Plus,
 } from "lucide-react";
 
-// Mock data - In a real app, this would come from an API
+// Form validation schema
+const formSchema = z.object({
+  name: z.string().min(2, {
+    message: "Ürün adı en az 2 karakter olmalıdır.",
+  }),
+  currentStock: z.number().min(0, {
+    message: "Stok miktarı 0'dan küçük olamaz.",
+  }),
+  minStock: z.number().min(0, {
+    message: "Minimum stok miktarı 0'dan küçük olamaz.",
+  }),
+});
+
+// Mock data
 const mockProducts = Array.from({ length: 10 }).map((_, i) => ({
   id: i + 1,
   name: `Ürün ${i + 1}`,
@@ -34,9 +68,19 @@ const mockProducts = Array.from({ length: 10 }).map((_, i) => ({
 }));
 
 export default function Inventory() {
-  const [products] = useState(mockProducts);
+  const [products, setProducts] = useState(mockProducts);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const { toast } = useToast();
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: "",
+      currentStock: 0,
+      minStock: 0,
+    },
+  });
 
   const filteredProducts = products.filter((product) =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -51,12 +95,37 @@ export default function Inventory() {
       title: "Dışa Aktarma Başlatıldı",
       description: "Stok raporu hazırlanıyor...",
     });
+    // Implement CSV export logic here
   };
 
   const handleRefresh = () => {
     toast({
       title: "Stok Bilgileri Güncellendi",
       description: "Tüm veriler yenilendi.",
+    });
+    // Implement refresh logic here
+  };
+
+  const onSubmit = (values: z.infer<typeof formSchema>) => {
+    const newProduct = {
+      id: products.length + 1,
+      name: values.name,
+      currentStock: values.currentStock,
+      minStock: values.minStock,
+      lastMovement: {
+        type: "increase",
+        amount: values.currentStock,
+      },
+      status: values.currentStock <= values.minStock ? "critical" : "normal",
+    };
+
+    setProducts([...products, newProduct]);
+    setIsAddDialogOpen(false);
+    form.reset();
+
+    toast({
+      title: "Ürün Eklendi",
+      description: `${values.name} başarıyla eklendi.`,
     });
   };
 
@@ -73,6 +142,80 @@ export default function Inventory() {
             <RefreshCw className="h-4 w-4 mr-2" />
             Yenile
           </Button>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Yeni Ürün
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Yeni Ürün Ekle</DialogTitle>
+                <DialogDescription>
+                  Stok takibi için yeni bir ürün ekleyin.
+                </DialogDescription>
+              </DialogHeader>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Ürün Adı</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="currentStock"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Mevcut Stok</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            {...field}
+                            onChange={(e) =>
+                              field.onChange(Number(e.target.value))
+                            }
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="minStock"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Minimum Stok</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            {...field}
+                            onChange={(e) =>
+                              field.onChange(Number(e.target.value))
+                            }
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <DialogFooter>
+                    <Button type="submit">Ekle</Button>
+                  </DialogFooter>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
